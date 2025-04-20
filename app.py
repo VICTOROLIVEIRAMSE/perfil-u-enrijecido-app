@@ -2,26 +2,25 @@ import streamlit as st
 import math
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib.patches import Rectangle, Circle, Polygon
-from mpl_toolkits.mplot3d import Axes3D
-from mpl_toolkits.mplot3d.art3d import Poly3DCollection
+from matplotlib.patches import Rectangle, Circle, Arc
 
-# Configuração do tema Dracula
+# Configuração do tema Dracula (mantido)
 def setup_theme():
     st.markdown("""
     <style>
         [data-testid="stAppViewContainer"] {
-            background: #282a36; /* Cor de fundo principal */
-            color: #f8f8f2; /* Cor do texto principal */
+            background: #282a36;
+            color: #f8f8f2;
         }
 
         .st-emotion-cache-1y4p8pa {
-            padding: 2rem 1rem 10rem;
+            padding: 2rem 1rem 3rem; /* Reduzindo um pouco o padding inferior */
         }
 
         [data-testid="stSidebar"] {
-            background: #44475a !important; /* Cor de fundo da barra lateral */
-            border-right: 1px solid #6272a4; /* Cor da borda da barra lateral */
+            background: #44475a !important;
+            border-right: 1px solid #6272a4;
+            padding-top: 2rem !important; /* Adicionando padding no topo da sidebar */
         }
 
         .st-b7 {
@@ -29,93 +28,121 @@ def setup_theme():
         }
 
         .st-c0 {
-            background-color: #44475a !important; /* Cor de fundo dos containers */
+            background-color: #44475a !important;
             border: 1px solid #6272a4;
-            border-radius: 5px;
-            padding: 15px;
-            margin-bottom: 10px;
+            border-radius: 8px; /* Bordas mais arredondadas */
+            padding: 1.5rem; /* Aumentando um pouco o padding interno */
+            margin-bottom: 1.2rem; /* Aumentando um pouco a margem inferior */
         }
 
         .stButton button {
-            background: #bd93f9 !important; /* Cor do botão */
-            color: #282a36 !important; /* Cor do texto do botão */
-            font-weight: bold;
+            background: #bd93f9 !important;
+            color: #282a36 !important;
+            font-weight: 500; /* Peso da fonte um pouco mais leve */
             border: none;
-            border-radius: 5px;
+            border-radius: 8px;
             transition: all 0.3s;
+            padding: 0.75rem 1.5rem; /* Ajustando o padding do botão */
         }
 
         .stButton button:hover {
-            background: #8be9fd !important; /* Cor do botão ao passar o mouse */
+            background: #8be9fd !important;
             color: #282a36 !important;
-            transform: scale(1.03);
+            transform: scale(1.02); /* Feedback visual sutil ao passar o mouse */
         }
 
         .metric-container {
-            background: #44475a; /* Cor de fundo das métricas */
-            border-radius: 5px;
-            padding: 15px;
-            margin-bottom: 10px;
-            border-left: 3px solid #50fa7b; /* Cor do indicador esquerdo das métricas */
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3); /* Sombra mais escura */
+            background: #44475a;
+            border-radius: 8px;
+            padding: 1.2rem;
+            margin-bottom: 1rem;
+            border-left: 5px solid #50fa7b; /* Barra lateral de destaque mais proeminente */
+            box-shadow: 0 3px 6px rgba(0, 0, 0, 0.3); /* Sombra mais suave e profissional */
             transition: all 0.3s;
             color: #f8f8f2;
         }
 
         .metric-container:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
+            transform: translateY(-0.25rem); /* Elevação sutil ao passar o mouse */
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.4);
         }
 
         .metric-value {
-            font-size: 1.3rem;
-            font-weight: bold;
-            color: #f1fa8c; /* Cor do valor da métrica */
+            font-size: 1.5rem; /* Aumentando um pouco o tamanho do valor */
+            font-weight: 600; /* Deixando o valor mais destacado */
+            color: #f1fa8c;
+            margin-bottom: 0.2rem; /* Adicionando um pouco de espaço abaixo do valor */
         }
 
         .metric-label {
-            font-size: 0.9rem;
-            color: #6272a4; /* Cor do rótulo da métrica */
+            font-size: 0.95rem; /* Ajustando um pouco o tamanho do rótulo */
+            color: #f8f8f2;
+            opacity: 0.8; /* Reduzindo um pouco a opacidade para hierarquia visual */
         }
 
         .title {
-            color: #ff79c6 !important; /* Cor do título */
-            font-size: 2.2rem !important;
-            margin-bottom: 0.3rem !important;
+            color: #ff79c6 !important;
+            font-size: 2.5rem !important; /* Título maior */
+            margin-bottom: 0.5rem !important; /* Mais espaço abaixo do título */
+            font-weight: 700; /* Título mais forte */
         }
 
         .subheader {
-            color: #6272a4 !important; /* Cor do subtítulo */
-            font-size: 1.1rem !important;
-            margin-bottom: 1.5rem !important;
+            color: #6272a4 !important;
+            font-size: 1.2rem !important; /* Subtítulo um pouco maior */
+            margin-bottom: 1.8rem !important; /* Mais espaço abaixo do subtítulo */
+            font-weight: 400; /* Subtítulo mais leve */
         }
 
-        /* Garantir que todo texto esteja visível */
-        * {
-            color: #f8f8f2 !important;
+        h3 {
+            color: #f8f8f2; /* Cor dos subtítulos de seção */
+            font-size: 1.4rem;
+            margin-bottom: 1rem;
         }
+
+        /* Estilo para os expansores */
+        .streamlit-expander {
+            background-color: #44475a !important;
+            border: 1px solid #6272a4 !important;
+            border-radius: 8px !important;
+            margin-bottom: 1rem !important;
+        }
+
+        .streamlit-expander-header {
+            color: #f8f8f2 !important;
+            font-size: 1rem;
+            font-weight: 500;
+            padding: 0.75rem !important;
+        }
+
+        .streamlit-expander-content {
+            color: #f8f8f2 !important;
+            padding: 0.75rem !important;
+        }
+
+        /* Ajuste para o texto das dicas na sidebar */
+        .stSidebar p {
+            color: #f8f8f2;
+            opacity: 0.7;
+            font-size: 0.9rem;
+            margin-bottom: 0.5rem;
+        }
+
     </style>
     """, unsafe_allow_html=True)
 
 def calcular_propriedades(largura, altura, espessura, raio, labio):
-    """Calcula as propriedades geométricas com precisão"""
-    # Áreas dos componentes
+    # (Função calcular_propriedades permanece a mesma)
     area_labios = 2 * labio * espessura
     area_mesa = (largura - 2 * (raio + labio)) * espessura
     area_almas = 2 * (altura - 2 * raio) * espessura
-    area_curvas = 4 * (math.pi * (raio + espessura/2) * espessura/2) # Correção na área das curvas
+    area_curvas = 4 * (math.pi * (raio + espessura/2) * espessura/2)
 
     area_total = area_labios + area_mesa + area_almas + area_curvas
 
-    # Centroide
-    xg = largura / 2  # Simétrico
-    yg = altura / 2
+    Ix = (espessura * (altura)**3)/12
+    Iy = ((altura - 2 * raio) * espessura**3)/12 + 2 * ((espessura * (labio + raio)**3)/12 + espessura * (labio + raio) * (largura/2 - (labio + raio)/2)**2)
 
-    # Momentos de inércia (cálculo mais preciso - simplificado para visualização)
-    Ix = (espessura * (altura)**3)/12 # Aproximação para simplificar
-    Iy = ((altura - 2 * raio) * espessura**3)/12 + 2 * ((espessura * (labio + raio)**3)/12 + espessura * (labio + raio) * (largura/2 - (labio + raio)/2)**2) # Aproximação
-
-    # Módulos resistentes
     Wx = Ix / (altura/2)
     Wy = Iy / (largura/2)
 
@@ -130,47 +157,34 @@ def calcular_propriedades(largura, altura, espessura, raio, labio):
     }
 
 def desenhar_perfil_2d(largura, altura, espessura, raio, labio):
-    """Cria uma visualização 2D do perfil com cores do tema Dracula"""
-    fig, ax = plt.subplots(figsize=(8, 4))
+    # (Função desenhar_perfil_2d permanece a mesma)
+    fig, ax = plt.subplots(figsize=(8, 6))
     ax.set_aspect('equal', adjustable='box')
-    ax.set_facecolor('#282a36') # Cor de fundo do gráfico
+    ax.set_facecolor('#282a36')
 
-    perfil_color = '#f8f8f2' # Cor do contorno do perfil
-    fill_color = '#6272a4' # Cor de preenchimento do perfil
+    perfil_color = '#f8f8f2'
+    fill_color = '#6272a4'
 
-    # Desenhar a base
-    ax.add_patch(Rectangle((0, 0), largura, espessura, facecolor=fill_color, edgecolor=perfil_color))
-
-    # Desenhar as almas
-    ax.add_patch(Rectangle((0, espessura), espessura, altura - 2 * espessura - 2 * raio, facecolor=fill_color, edgecolor=perfil_color))
-    ax.add_patch(Rectangle((largura - espessura, espessura), espessura, altura - 2 * espessura - 2 * raio, facecolor=fill_color, edgecolor=perfil_color))
-
-    # Desenhar os raios
-    circle1 = Circle((espessura + raio, espessura + raio), raio, facecolor=fill_color, edgecolor=perfil_color)
-    ax.add_patch(circle1)
-    circle2 = Circle((largura - espessura - raio, espessura + raio), raio, facecolor=fill_color, edgecolor=perfil_color)
-    ax.add_patch(circle2)
-    circle3 = Circle((espessura + raio, altura - espessura - raio), raio, facecolor=fill_color, edgecolor=perfil_color)
-    ax.add_patch(circle3)
-    circle4 = Circle((largura - espessura - raio, altura - espessura - raio), raio, facecolor=fill_color, edgecolor=perfil_color)
-    ax.add_patch(circle4)
-
-    # Desenhar a mesa superior
+    ax.add_patch(Rectangle((raio, 0), largura - 2 * raio, espessura, facecolor=fill_color, edgecolor=perfil_color))
+    ax.add_patch(Rectangle((0, espessura + raio), espessura, altura - 2 * espessura - 2 * raio, facecolor=fill_color, edgecolor=perfil_color))
+    ax.add_patch(Rectangle((largura - espessura, espessura + raio), espessura, altura - 2 * espessura - 2 * raio, facecolor=fill_color, edgecolor=perfil_color))
     ax.add_patch(Rectangle((raio + espessura, altura - espessura), largura - 2 * (raio + espessura), espessura, facecolor=fill_color, edgecolor=perfil_color))
-
-    # Desenhar os lábios
     ax.add_patch(Rectangle((0, altura - espessura - labio), labio, espessura, facecolor=fill_color, edgecolor=perfil_color))
     ax.add_patch(Rectangle((largura - labio, altura - espessura - labio), labio, espessura, facecolor=fill_color, edgecolor=perfil_color))
 
-    # Limites e rótulos
-    ax.set_xlim(-5, largura + 5)
-    ax.set_ylim(-5, altura + 5)
-    ax.axis('off') # Remover eixos para uma visualização mais limpa
+    ax.add_patch(Arc((raio, espessura + raio), 2 * raio, 2 * raio, theta1=180, theta2=270, edgecolor=perfil_color, linewidth=1))
+    ax.add_patch(Arc((largura - raio, espessura + raio), 2 * raio, 2 * raio, theta1=270, theta2=360, edgecolor=perfil_color, linewidth=1))
+    ax.add_patch(Arc((espessura + raio, altura - espessura - raio), 2 * raio, 2 * raio, theta1=90, theta2=180, edgecolor=perfil_color, linewidth=1))
+    ax.add_patch(Arc((largura - espessura - raio, altura - espessura - raio), 2 * raio, 2 * raio, theta1=0, theta2=90, edgecolor=perfil_color, linewidth=1))
+
+    ax.set_xlim(-max(labio, espessura) - 5, largura + max(labio, espessura) + 5)
+    ax.set_ylim(-5, altura + max(labio, espessura) + 5)
+    ax.axis('off')
     plt.tight_layout()
     return fig
 
 def criar_metric_card(label, value):
-    """Componente personalizado para métricas com cores do tema Dracula"""
+    """Componente personalizado para métricas"""
     return f"""
     <div class="metric-container">
         <div class="metric-label">{label}</div>
@@ -198,36 +212,33 @@ def main():
             labio = st.number_input("Lábio (L)", min_value=5, max_value=50, value=15, step=1)
 
         st.markdown("---")
-        st.markdown("<p style='color:#f8f8f2;'><strong>Dicas:</strong></p>", unsafe_allow_html=True)
-        st.markdown("<p style='color:#6272a4;'>- Lábios típicos: 10-20% da largura</p>", unsafe_allow_html=True)
-        st.markdown("<p style='color:#6272a4;'>- Raios comuns: 2-4x a espessura</p>", unsafe_allow_html=True)
+        with st.expander("ℹ️ Dicas de Dimensionamento"):
+            st.markdown("- Lábios típicos: 10-20% da largura")
+            st.markdown("- Raios comuns: 2-4x a espessura")
 
-    # Layout principal
-    col1, col2 = st.columns([1, 2])
+    st.markdown("### 📐 Propriedades Geométricas")
+    col_props1, col_props2 = st.columns(2)
+    props = calcular_propriedades(largura, altura, espessura, raio, labio)
 
-    with col1:
-        st.markdown("### 📐 Propriedades Geométricas")
-        props = calcular_propriedades(largura, altura, espessura, raio, labio)
-
+    with col_props1:
         st.markdown(criar_metric_card("Área da Seção Transversal", props['Área']), unsafe_allow_html=True)
         st.markdown(criar_metric_card("Mom. de Inércia (Ix)", props['Ix']), unsafe_allow_html=True)
-        st.markdown(criar_metric_card("Mom. de Inércia (Iy)", props['Iy']), unsafe_allow_html=True)
-
         st.markdown(criar_metric_card("Mód. Resistente (Wx)", props['Wx']), unsafe_allow_html=True)
-        st.markdown(criar_metric_card("Mód. Resistente (Wy)", props['Wy']), unsafe_allow_html=True)
-
         st.markdown(criar_metric_card("Raio de Giração (rx)", props['rx']), unsafe_allow_html=True)
+
+    with col_props2:
+        st.markdown(criar_metric_card("Mom. de Inércia (Iy)", props['Iy']), unsafe_allow_html=True)
+        st.markdown(criar_metric_card("Mód. Resistente (Wy)", props['Wy']), unsafe_allow_html=True)
         st.markdown(criar_metric_card("Raio de Giração (ry)", props['ry']), unsafe_allow_html=True)
 
-    with col2:
-        st.markdown("### 📏 Visualização do Perfil")
-        fig = desenhar_perfil_2d(largura, altura, espessura, raio, labio)
-        st.pyplot(fig)
+    st.markdown("### 📏 Visualização do Perfil")
+    st.markdown("<p style='color:#f8f8f2; opacity: 0.8;'>Representação da seção transversal</p>", unsafe_allow_html=True)
+    fig = desenhar_perfil_2d(largura, altura, espessura, raio, labio)
+    st.pyplot(fig)
 
-        st.markdown("---")
-        st.markdown("<p style='color:#f8f8f2;'><strong>Detalhes da visualização:</strong></p>", unsafe_allow_html=True)
-        st.markdown("<p style='color:#6272a4;'>- As dimensões não estão em escala exata para melhor visualização.</p>", unsafe_allow_html=True)
-        st.markdown("<p style='color:#6272a4;'>- O contorno representa a seção transversal do perfil.</p>", unsafe_allow_html=True)
+    with st.expander("ℹ️ Detalhes da Visualização"):
+        st.markdown("- As dimensões não estão em escala exata para melhor visualização.")
+        st.markdown("- O contorno representa a seção transversal do perfil.")
 
 if __name__ == "__main__":
     main()
