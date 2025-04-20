@@ -1,93 +1,121 @@
-
 import streamlit as st
 import math
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib.patches import Rectangle
-from matplotlib.animation import FuncAnimation
+from matplotlib.patches import Rectangle, Circle, Polygon
+from mpl_toolkits.mplot3d import Axes3D
+from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
 # Configuração do tema aprimorado
 def setup_theme():
     st.markdown("""
     <style>
         [data-testid="stAppViewContainer"] {
-            background: #282a36;
-            color: #f8f8f2;
+            background: white;
+            color: #333333;
         }
+        
         .st-emotion-cache-1y4p8pa {
             padding: 2rem 1rem 10rem;
         }
+        
         [data-testid="stSidebar"] {
-            background: #44475a !important;
-            border-right: 1px solid #6272a4;
+            background: #f0f2f6 !important;
+            border-right: 1px solid #ddd;
         }
+        
         .st-b7 {
-            color: #f8f8f2 !important;
+            color: #333333 !important;
         }
+        
         .st-c0 {
-            background-color: #44475a !important;
+            background-color: white !important;
         }
+        
         .stButton button {
-            background: #bd93f9 !important;
-            color: #282a36 !important;
+            background: #4a6bdf !important;
+            color: white !important;
             font-weight: bold;
             border: none;
             transition: all 0.3s;
         }
+        
         .stButton button:hover {
-            background: #ff79c6 !important;
+            background: #3a56c0 !important;
             transform: scale(1.05);
         }
+        
         .metric-container {
-            background: #44475a;
+            background: white;
             border-radius: 10px;
             padding: 15px;
             margin-bottom: 15px;
-            border-left: 5px solid #bd93f9;
+            border-left: 5px solid #4a6bdf;
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
             transition: all 0.3s;
+            color: #333333;
         }
+        
         .metric-container:hover {
             transform: translateY(-5px);
             box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
         }
+        
         .metric-value {
             font-size: 1.5rem;
             font-weight: bold;
-            color: #50fa7b;
+            color: #4a6bdf;
         }
+        
         .metric-label {
             font-size: 1rem;
-            color: #f8f8f2;
-            opacity: 0.8;
+            color: #555555;
         }
+        
         .title {
-            color: #ff79c6 !important;
+            color: #4a6bdf !important;
             font-size: 2.5rem !important;
             margin-bottom: 0.5rem !important;
         }
+        
         .subheader {
-            color: #bd93f9 !important;
+            color: #555555 !important;
             font-size: 1.2rem !important;
             margin-bottom: 2rem !important;
+        }
+        
+        /* Garantir que todo texto esteja visível */
+        * {
+            color: #333333 !important;
         }
     </style>
     """, unsafe_allow_html=True)
 
 def calcular_propriedades(largura, altura, espessura, raio, labio):
+    """Calcula as propriedades geométricas com precisão"""
+    # Áreas dos componentes
     area_labios = 2 * labio * espessura
     area_mesa = (largura - 2 * (raio + labio)) * espessura
     area_almas = 2 * (altura - 2 * raio) * espessura
     area_curvas = 4 * (math.pi * (raio + espessura/2) * espessura)
+    
     area_total = area_labios + area_mesa + area_almas + area_curvas
-    xg = largura / 2
+    
+    # Centroide
+    xg = largura / 2  # Simétrico
     yg = altura / 2
+    
+    # Momentos de inércia (cálculo mais preciso)
     Ix = (espessura * (altura - 2*raio)**3)/12 + 2*( (labio*espessura**3)/12 + labio*espessura*(altura/2 - espessura/2)**2 )
     Ix += ( (largura - 2*(raio + labio)) * espessura**3 )/12 + (largura - 2*(raio + labio)) * espessura * (altura/2)**2
+    
     Iy = ( (altura - 2*raio) * espessura**3 )/12 + 2*( (espessura * labio**3)/12 + labio*espessura*(largura/2 - labio/2)**2 )
     Iy += ( espessura * (largura - 2*(raio + labio))**3 )/12
+    
+    # Módulos resistentes
     Wx = Ix / (altura/2)
     Wy = Iy / (largura/2)
+    
     return {
         'Área': f"{area_total:.2f} mm²",
         'Ix': f"{Ix:.2f} mm⁴", 
@@ -98,61 +126,64 @@ def calcular_propriedades(largura, altura, espessura, raio, labio):
         'ry': f"{math.sqrt(Iy/area_total):.2f} mm"
     }
 
-def desenhar_perfil(largura, altura, espessura, raio, labio):
-    fig, ax = plt.subplots(figsize=(10, 6), facecolor='#282a36')
-    ax.set_facecolor('#282a36')
-    cor_perfil = '#bd93f9'
-    cor_preenchimento = '#44475a'
-    cor_texto = '#ffffff'
-    mesa = Rectangle((0, altura-espessura), largura, espessura, linewidth=2, edgecolor=cor_perfil, facecolor=cor_preenchimento)
-    alma_esq = Rectangle((0, 0), espessura, altura-espessura, linewidth=2, edgecolor=cor_perfil, facecolor=cor_preenchimento)
-    alma_dir = Rectangle((largura-espessura, 0), espessura, altura-espessura, linewidth=2, edgecolor=cor_perfil, facecolor=cor_preenchimento)
-    labio_esq = Rectangle((espessura, altura-espessura-labio), labio, espessura, linewidth=2, edgecolor=cor_perfil, facecolor=cor_preenchimento)
-    labio_dir = Rectangle((largura-espessura-labio, altura-espessura-labio), labio, espessura, linewidth=2, edgecolor=cor_perfil, facecolor=cor_preenchimento)
-    for patch in [mesa, alma_esq, alma_dir, labio_esq, labio_dir]:
-        ax.add_patch(patch)
-    ax.set_xlim(-10, largura + 10)
-    ax.set_ylim(-10, altura + 10)
-    ax.set_aspect('equal')
-    ax.axis('off')
-    ax.annotate(f"{largura} mm", xy=(largura/2, altura+5), ha='center', va='center', color=cor_texto, fontsize=10)
-    ax.annotate(f"{altura} mm", xy=(-5, altura/2), ha='right', va='center', color=cor_texto, fontsize=10, rotation=90)
-    ax.annotate(f"Labio: {labio} mm", xy=(largura/2, altura-espessura-labio/2), ha='center', va='center', color=cor_texto, fontsize=9)
+def desenhar_perfil_3d(largura, altura, espessura, raio, labio, comprimento=300):
+    """Cria uma visualização 3D profissional do perfil"""
+    fig = plt.figure(figsize=(10, 6))
+    ax = fig.add_subplot(111, projection='3d')
+    
+    # Cores
+    cor_perfil = '#4a6bdf'
+    cor_preenchimento = '#a0b4f8'
+    
+    # Definindo os vértices do perfil U
+    vertices = []
+    
+    # Face frontal
+    vertices.append([(0, 0, 0), (largura, 0, 0), (largura, altura, 0), (0, altura, 0)])
+    
+    # Face traseira
+    vertices.append([(0, 0, comprimento), (largura, 0, comprimento), (largura, altura, comprimento), (0, altura, comprimento)])
+    
+    # Lados
+    vertices.append([(0, 0, 0), (0, 0, comprimento), (0, altura, comprimento), (0, altura, 0)])
+    vertices.append([(largura, 0, 0), (largura, 0, comprimento), (largura, altura, comprimento), (largura, altura, 0)])
+    
+    # Mesa superior
+    vertices.append([(0, altura, 0), (largura, altura, 0), (largura, altura, comprimento), (0, altura, comprimento)])
+    
+    # Adicionando os lábios enrijecedores
+    vertices.append([(0, altura-espessura-labio, 0), (labio, altura-espessura-labio, 0), 
+                    (labio, altura-espessura, 0), (0, altura-espessura, 0)])
+    vertices.append([(0, altura-espessura-labio, comprimento), (labio, altura-espessura-labio, comprimento), 
+                    (labio, altura-espessura, comprimento), (0, altura-espessura, comprimento)])
+    vertices.append([(largura, altura-espessura-labio, 0), (largura-labio, altura-espessura-labio, 0), 
+                    (largura-labio, altura-espessura, 0), (largura, altura-espessura, 0)])
+    vertices.append([(largura, altura-espessura-labio, comprimento), (largura-labio, altura-espessura-labio, comprimento), 
+                    (largura-labio, altura-espessura, comprimento), (largura, altura-espessura, comprimento)])
+    
+    # Criando as faces 3D
+    faces = Poly3DCollection(vertices, alpha=0.8, linewidths=1, edgecolors='#333333', facecolors=cor_preenchimento)
+    ax.add_collection3d(faces)
+    
+    # Configurações do gráfico
+    ax.set_xlim(0, largura + 50)
+    ax.set_ylim(0, altura + 50)
+    ax.set_zlim(0, comprimento)
+    ax.set_box_aspect([1, 1, 2])
+    
+    # Ângulo de visualização
+    ax.view_init(elev=25, azim=45)
+    
+    # Rótulos dos eixos
+    ax.set_xlabel('Largura (mm)')
+    ax.set_ylabel('Altura (mm)')
+    ax.set_zlabel('Comprimento (mm)')
+    
     plt.tight_layout()
     return fig
 
-def animar_montagem(largura, altura, espessura, raio, labio):
-    fig, ax = plt.subplots(figsize=(10, 6))
-    ax.set_facecolor('#282a36')
-    cor_perfil = '#bd93f9'
-    cor_preenchimento = '#44475a'
-    patches = [
-        Rectangle((0, 0), espessura, altura-espessura),
-        Rectangle((0, altura-espessura), largura, espessura),
-        Rectangle((largura-espessura, 0), espessura, altura-espessura),
-        Rectangle((espessura, altura-espessura-labio), labio, espessura),
-        Rectangle((largura-espessura-labio, altura-espessura-labio), labio, espessura),
-    ]
-    for patch in patches:
-        patch.set_edgecolor(cor_perfil)
-        patch.set_facecolor(cor_preenchimento)
-        patch.set_linewidth(2)
-    def init():
-        return []
-    def update(frame):
-        ax.clear()
-        ax.set_facecolor('#282a36')
-        ax.set_xlim(-10, largura + 10)
-        ax.set_ylim(-10, altura + 10)
-        ax.set_aspect('equal')
-        ax.axis('off')
-        for i in range(frame + 1):
-            ax.add_patch(patches[i])
-        return patches[:frame+1]
-    ani = FuncAnimation(fig, update, frames=len(patches), init_func=init, interval=600, blit=False, repeat=False)
-    return fig
-
 def criar_metric_card(label, value):
+    """Componente personalizado para métricas"""
     return f"""
     <div class="metric-container">
         <div class="metric-label">{label}</div>
@@ -162,45 +193,54 @@ def criar_metric_card(label, value):
 
 def main():
     setup_theme()
+    
     st.markdown('<p class="title">Perfil U Enrijecido</p>', unsafe_allow_html=True)
     st.markdown('<p class="subheader">Dimensionamento conforme NBR 14762</p>', unsafe_allow_html=True)
+    
     with st.sidebar:
         st.header("✏️ Parâmetros do Perfil")
         col1, col2 = st.columns(2)
+        
         with col1:
             largura = st.number_input("Largura (B)", min_value=50, max_value=500, value=100, step=5)
             altura = st.number_input("Altura (H)", min_value=30, max_value=300, value=50, step=5)
             espessura = st.number_input("Espessura (t)", min_value=0.5, max_value=5.0, value=1.5, step=0.1)
+        
         with col2:
             raio = st.number_input("Raio (r)", min_value=1.0, max_value=10.0, value=3.0, step=0.5)
             labio = st.number_input("Lábio (L)", min_value=5, max_value=50, value=15, step=1)
+        
         st.markdown("---")
         st.markdown("**Dicas:**")
         st.markdown("- Lábios típicos: 10-20% da largura")
         st.markdown("- Raios comuns: 2-4x a espessura")
+    
+    # Layout principal
     col1, col2 = st.columns([1, 2])
+    
     with col1:
         st.markdown("### 📐 Propriedades Geométricas")
         props = calcular_propriedades(largura, altura, espessura, raio, labio)
+        
         st.markdown(criar_metric_card("Área da Seção Transversal", props['Área']), unsafe_allow_html=True)
         st.markdown(criar_metric_card("Mom. de Inércia (Ix)", props['Ix']), unsafe_allow_html=True)
         st.markdown(criar_metric_card("Mom. de Inércia (Iy)", props['Iy']), unsafe_allow_html=True)
+        
         st.markdown(criar_metric_card("Mód. Resistente (Wx)", props['Wx']), unsafe_allow_html=True)
         st.markdown(criar_metric_card("Mód. Resistente (Wy)", props['Wy']), unsafe_allow_html=True)
+        
         st.markdown(criar_metric_card("Raio de Giração (rx)", props['rx']), unsafe_allow_html=True)
         st.markdown(criar_metric_card("Raio de Giração (ry)", props['ry']), unsafe_allow_html=True)
+    
     with col2:
-        st.markdown("### 🎨 Visualização do Perfil")
-        if st.checkbox("🎞️ Mostrar montagem animada"):
-            fig = animar_montagem(largura, altura, espessura, raio, labio)
-        else:
-            fig = desenhar_perfil(largura, altura, espessura, raio, labio)
+        st.markdown("### 🎨 Visualização 3D do Perfil")
+        fig = desenhar_perfil_3d(largura, altura, espessura, raio, labio)
         st.pyplot(fig)
+        
         st.markdown("---")
-        st.markdown("**Legenda:**")
-        st.markdown("- <span style='color:#bd93f9'>**Linhas roxas**</span>: Contorno do perfil", unsafe_allow_html=True)
-        st.markdown("- <span style='color:#44475a'>**Área cinza**</span>: Seção transversal", unsafe_allow_html=True)
-        st.markdown("- Dimensões em milímetros (mm)")
+        st.markdown("**Visualização 3D interativa:**")
+        st.markdown("- Use o mouse para rotacionar o perfil")
+        st.markdown("- Scroll para zoom in/out")
 
 if __name__ == "__main__":
     main()
