@@ -1,6 +1,5 @@
 import streamlit as st
 import math
-st.components.v1.html(svg_code, height=300)
 
 # Configuração do tema Dracula
 def inject_dracula_theme():
@@ -179,40 +178,22 @@ def main():
         st.markdown("---")
         st.markdown("## 🖍️ Visualização Esquemática")
         
-        # Código SVG para representar o perfil U
-        svg_code = f"""
-        <svg width="400" height="300" viewBox="0 0 {largura + 50} {altura + 50}" xmlns="http://www.w3.org/2000/svg">
-            <!-- Perfil U -->
-            <path d="
-                M 20,20
-                h {comprimento_labio}
-                a {raio},{raio} 0 0 1 {raio},{raio}
-                v {altura - 2*raio}
-                a {raio},{raio} 0 0 1 -{raio},{raio}
-                h -{comprimento_labio}
-                h -{largura - 2*comprimento_labio - 2*raio}
-                h -{comprimento_labio}
-                a {raio},{raio} 0 0 1 -{raio},-{raio}
-                v -{altura - 2*raio}
-                a {raio},{raio} 0 0 1 {raio},-{raio}
-                h {comprimento_labio}
-                z
-            " fill="none" stroke="#bd93f9" stroke-width="{espessura}" />
-            
-            <!-- Dimensões -->
-            <line x1="20" y1="{altura + 30}" x2="{20 + largura}" y2="{altura + 30}" stroke="#ff79c6" stroke-width="1.5" stroke-dasharray="5,5" />
-            <text x="{20 + largura/2}" y="{altura + 40}" fill="#f8f8f2" font-size="12" text-anchor="middle">{largura} mm</text>
-            
-            <line x1="10" y1="20" x2="10" y2="{20 + altura}" stroke="#ff79c6" stroke-width="1.5" stroke-dasharray="5,5" />
-            <text x="5" y="{20 + altura/2}" fill="#f8f8f2" font-size="12" text-anchor="middle" transform="rotate(-90,5,{20 + altura/2})">{altura} mm</text>
-            
-            <!-- Legenda -->
-            <text x="20" y="15" fill="#50fa7b" font-size="10">Lábio: {comprimento_labio} mm</text>
-            <text x="{20 + largura/2}" y="{20 + altura + 20}" fill="#50fa7b" font-size="10">R: {raio} mm</text>
-        </svg>
-        """
+        # Representação ASCII do perfil
+        st.code(f"""
+        Perfil U Enrijecido - Dimensões:
         
-        st.components.v1.html(svg_code, height=300)
+        {'_'*(int(largura/5))}
+        |{' '*(int(largura/5)-2)}|
+        |{' '*(int(comprimento_labio/5))}↘{' '*(int(largura/5)-2*int(comprimento_labio/5)-4)}↙{' '*(int(comprimento_labio/5))}|
+        |{' '*(int(comprimento_labio/5))}|{' '*(int(largura/5)-2*int(comprimento_labio/5)-2)}|{' '*(int(comprimento_labio/5))}|
+        ‾{'‾'*(int(largura/5)-2)}‾
+        
+        Largura: {largura} mm
+        Altura: {altura} mm
+        Espessura: {espessura} mm
+        Lábio: {comprimento_labio} mm
+        Raio: {raio} mm
+        """)
 
 if __name__ == "__main__":
     main()
