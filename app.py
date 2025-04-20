@@ -4,7 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle, Circle, Arc
 
-# Configuração do tema Dracula (mantido)
+# Configuração do tema Dracula (cores vibrantes ajustadas)
 def setup_theme():
     st.markdown("""
     <style>
@@ -14,13 +14,13 @@ def setup_theme():
         }
 
         .st-emotion-cache-1y4p8pa {
-            padding: 2rem 1rem 3rem; /* Reduzindo um pouco o padding inferior */
+            padding: 2rem 1rem 3rem;
         }
 
         [data-testid="stSidebar"] {
             background: #44475a !important;
             border-right: 1px solid #6272a4;
-            padding-top: 2rem !important; /* Adicionando padding no topo da sidebar */
+            padding-top: 2rem !important;
         }
 
         .st-b7 {
@@ -30,25 +30,25 @@ def setup_theme():
         .st-c0 {
             background-color: #44475a !important;
             border: 1px solid #6272a4;
-            border-radius: 8px; /* Bordas mais arredondadas */
-            padding: 1.5rem; /* Aumentando um pouco o padding interno */
-            margin-bottom: 1.2rem; /* Aumentando um pouco a margem inferior */
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 1.2rem;
         }
 
         .stButton button {
             background: #bd93f9 !important;
             color: #282a36 !important;
-            font-weight: 500; /* Peso da fonte um pouco mais leve */
+            font-weight: 500;
             border: none;
             border-radius: 8px;
             transition: all 0.3s;
-            padding: 0.75rem 1.5rem; /* Ajustando o padding do botão */
+            padding: 0.75rem 1.5rem;
         }
 
         .stButton button:hover {
             background: #8be9fd !important;
             color: #282a36 !important;
-            transform: scale(1.02); /* Feedback visual sutil ao passar o mouse */
+            transform: scale(1.02);
         }
 
         .metric-container {
@@ -56,51 +56,50 @@ def setup_theme():
             border-radius: 8px;
             padding: 1.2rem;
             margin-bottom: 1rem;
-            border-left: 5px solid #50fa7b; /* Barra lateral de destaque mais proeminente */
-            box-shadow: 0 3px 6px rgba(0, 0, 0, 0.3); /* Sombra mais suave e profissional */
+            border-left: 5px solid #50fa7b;
+            box-shadow: 0 3px 6px rgba(0, 0, 0, 0.3);
             transition: all 0.3s;
             color: #f8f8f2;
         }
 
         .metric-container:hover {
-            transform: translateY(-0.25rem); /* Elevação sutil ao passar o mouse */
+            transform: translateY(-0.25rem);
             box-shadow: 0 6px 12px rgba(0, 0, 0, 0.4);
         }
 
         .metric-value {
-            font-size: 1.5rem; /* Aumentando um pouco o tamanho do valor */
-            font-weight: 600; /* Deixando o valor mais destacado */
-            color: #f1fa8c;
-            margin-bottom: 0.2rem; /* Adicionando um pouco de espaço abaixo do valor */
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #f1fa8c; /* Amarelo vibrante */
+            margin-bottom: 0.2rem;
         }
 
         .metric-label {
-            font-size: 0.95rem; /* Ajustando um pouco o tamanho do rótulo */
+            font-size: 0.95rem;
             color: #f8f8f2;
-            opacity: 0.8; /* Reduzindo um pouco a opacidade para hierarquia visual */
+            opacity: 0.8;
         }
 
         .title {
-            color: #ff79c6 !important;
-            font-size: 2.5rem !important; /* Título maior */
-            margin-bottom: 0.5rem !important; /* Mais espaço abaixo do título */
-            font-weight: 700; /* Título mais forte */
+            color: #ff79c6 !important; /* Rosa vibrante */
+            font-size: 2.5rem !important;
+            margin-bottom: 0.5rem !important;
+            font-weight: 700;
         }
 
         .subheader {
             color: #6272a4 !important;
-            font-size: 1.2rem !important; /* Subtítulo um pouco maior */
-            margin-bottom: 1.8rem !important; /* Mais espaço abaixo do subtítulo */
-            font-weight: 400; /* Subtítulo mais leve */
+            font-size: 1.2rem !important;
+            margin-bottom: 1.8rem !important;
+            font-weight: 400;
         }
 
         h3 {
-            color: #f8f8f2; /* Cor dos subtítulos de seção */
+            color: #f8f8f2;
             font-size: 1.4rem;
             margin-bottom: 1rem;
         }
 
-        /* Estilo para os expansores */
         .streamlit-expander {
             background-color: #44475a !important;
             border: 1px solid #6272a4 !important;
@@ -120,7 +119,6 @@ def setup_theme():
             padding: 0.75rem !important;
         }
 
-        /* Ajuste para o texto das dicas na sidebar */
         .stSidebar p {
             color: #f8f8f2;
             opacity: 0.7;
@@ -132,7 +130,6 @@ def setup_theme():
     """, unsafe_allow_html=True)
 
 def calcular_propriedades(largura, altura, espessura, raio, labio):
-    # (Função calcular_propriedades permanece a mesma)
     area_labios = 2 * labio * espessura
     area_mesa = (largura - 2 * (raio + labio)) * espessura
     area_almas = 2 * (altura - 2 * raio) * espessura
@@ -157,38 +154,53 @@ def calcular_propriedades(largura, altura, espessura, raio, labio):
     }
 
 def desenhar_perfil_2d(largura, altura, espessura, raio, labio):
-    # (Função desenhar_perfil_2d permanece a mesma)
+    """Cria uma visualização 2D mais fidedigna e clara do perfil U enrijecido"""
     fig, ax = plt.subplots(figsize=(8, 6))
     ax.set_aspect('equal', adjustable='box')
     ax.set_facecolor('#282a36')
 
     perfil_color = '#f8f8f2'
     fill_color = '#6272a4'
+    linha_espessura = 2  # Espessura da linha para melhor visualização
 
-    ax.add_patch(Rectangle((raio, 0), largura - 2 * raio, espessura, facecolor=fill_color, edgecolor=perfil_color))
-    ax.add_patch(Rectangle((0, espessura + raio), espessura, altura - 2 * espessura - 2 * raio, facecolor=fill_color, edgecolor=perfil_color))
-    ax.add_patch(Rectangle((largura - espessura, espessura + raio), espessura, altura - 2 * espessura - 2 * raio, facecolor=fill_color, edgecolor=perfil_color))
-    ax.add_patch(Rectangle((raio + espessura, altura - espessura), largura - 2 * (raio + espessura), espessura, facecolor=fill_color, edgecolor=perfil_color))
-    ax.add_patch(Rectangle((0, altura - espessura - labio), labio, espessura, facecolor=fill_color, edgecolor=perfil_color))
-    ax.add_patch(Rectangle((largura - labio, altura - espessura - labio), labio, espessura, facecolor=fill_color, edgecolor=perfil_color))
+    # Desenhar a base (abaixo)
+    ax.add_patch(Rectangle((raio, 0), largura - 2 * raio, espessura, facecolor=fill_color, edgecolor=perfil_color, linewidth=linha_espessura))
 
-    ax.add_patch(Arc((raio, espessura + raio), 2 * raio, 2 * raio, theta1=180, theta2=270, edgecolor=perfil_color, linewidth=1))
-    ax.add_patch(Arc((largura - raio, espessura + raio), 2 * raio, 2 * raio, theta1=270, theta2=360, edgecolor=perfil_color, linewidth=1))
-    ax.add_patch(Arc((espessura + raio, altura - espessura - raio), 2 * raio, 2 * raio, theta1=90, theta2=180, edgecolor=perfil_color, linewidth=1))
-    ax.add_patch(Arc((largura - espessura - raio, altura - espessura - raio), 2 * raio, 2 * raio, theta1=0, theta2=90, edgecolor=perfil_color, linewidth=1))
+    # Desenhar as almas (laterais)
+    ax.add_patch(Rectangle((0, espessura + raio), espessura, altura - 2 * espessura - 2 * raio, facecolor=fill_color, edgecolor=perfil_color, linewidth=linha_espessura))
+    ax.add_patch(Rectangle((largura - espessura, espessura + raio), espessura, altura - 2 * espessura - 2 * raio, facecolor=fill_color, edgecolor=perfil_color, linewidth=linha_espessura))
 
-    ax.set_xlim(-max(labio, espessura) - 5, largura + max(labio, espessura) + 5)
-    ax.set_ylim(-5, altura + max(labio, espessura) + 5)
+    # Desenhar a mesa superior (acima)
+    ax.add_patch(Rectangle((raio + espessura, altura - espessura), largura - 2 * (raio + espessura), espessura, facecolor=fill_color, edgecolor=perfil_color, linewidth=linha_espessura))
+
+    # Desenhar os lábios (superiores)
+    ax.add_patch(Rectangle((0, altura - espessura - labio), labio, espessura, facecolor=fill_color, edgecolor=perfil_color, linewidth=linha_espessura))
+    ax.add_patch(Rectangle((largura - labio, altura - espessura - labio), labio, espessura, facecolor=fill_color, edgecolor=perfil_color, linewidth=linha_espessura))
+
+    # Desenhar os cantos arredondados (arcos)
+    raio_desenho = raio  # Usar o raio real para os arcos
+
+    # Inferiores
+    ax.add_patch(Arc((raio, espessura + raio), 2 * raio_desenho, 2 * raio_desenho, theta1=180, theta2=270, edgecolor=perfil_color, linewidth=linha_espessura))
+    ax.add_patch(Arc((largura - raio, espessura + raio), 2 * raio_desenho, 2 * raio_desenho, theta1=270, theta2=360, edgecolor=perfil_color, linewidth=linha_espessura))
+
+    # Superiores internos
+    ax.add_patch(Arc((espessura + raio, altura - espessura - raio), 2 * raio_desenho, 2 * raio_desenho, theta1=90, theta2=180, edgecolor=perfil_color, linewidth=linha_espessura))
+    ax.add_patch(Arc((largura - espessura - raio, altura - espessura - raio), 2 * raio_desenho, 2 * raio_desenho, theta1=0, theta2=90, edgecolor=perfil_color, linewidth=linha_espessura))
+
+    # Ajustar limites para melhor visualização
+    ax.set_xlim(-max(labio, espessura) - raio_desenho * 0.5, largura + max(labio, espessura) + raio_desenho * 0.5)
+    ax.set_ylim(-raio_desenho * 0.5, altura + max(labio, espessura) + raio_desenho * 0.5)
     ax.axis('off')
     plt.tight_layout()
     return fig
 
 def criar_metric_card(label, value):
-    """Componente personalizado para métricas"""
+    """Componente personalizado para métricas com cores vibrantes"""
     return f"""
     <div class="metric-container">
-        <div class="metric-label">{label}</div>
-        <div class="metric-value">{value}</div>
+        <div class="metric-label" style="color:#f8f8f2; opacity: 0.8;">{label}</div>
+        <div class="metric-value" style="color:#f1fa8c;">{value}</div>
     </div>
     """
 
@@ -213,8 +225,8 @@ def main():
 
         st.markdown("---")
         with st.expander("ℹ️ Dicas de Dimensionamento"):
-            st.markdown("- Lábios típicos: 10-20% da largura")
-            st.markdown("- Raios comuns: 2-4x a espessura")
+            st.markdown("<p style='color:#f8f8f2; opacity: 0.7;'>- Lábios típicos: 10-20% da largura</p>", unsafe_allow_html=True)
+            st.markdown("<p style='color:#f8f8f2; opacity: 0.7;'>- Raios comuns: 2-4x a espessura</p>", unsafe_allow_html=True)
 
     st.markdown("### 📐 Propriedades Geométricas")
     col_props1, col_props2 = st.columns(2)
@@ -237,8 +249,8 @@ def main():
     st.pyplot(fig)
 
     with st.expander("ℹ️ Detalhes da Visualização"):
-        st.markdown("- As dimensões não estão em escala exata para melhor visualização.")
-        st.markdown("- O contorno representa a seção transversal do perfil.")
+        st.markdown("<p style='color:#f8f8f2; opacity: 0.7;'>- As dimensões são representadas fielmente.</p>", unsafe_allow_html=True)
+        st.markdown("<p style='color:#f8f8f2; opacity: 0.7;'>- O contorno mostra a seção transversal exata.</p>", unsafe_allow_html=True)
 
 if __name__ == "__main__":
     main()
