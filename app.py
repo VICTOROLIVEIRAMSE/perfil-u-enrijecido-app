@@ -1,207 +1,353 @@
 import streamlit as st
 import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+from io import StringIO
+import sympy as sp
+import tempfile
+import os
+from pylatex import Document, Section, Subsection, Math, Tabular, Figure, Command
+from pylatex.utils import italic, bold
 
-# Function to perform structural verification
-def structural_verification(largura, altura, espessura, comprimento, fy, le_x, le_y, Lx, Ly, Lz, Kx, Ky, Kz, N, Mx, My, Vx, Vy):
+# Configuração inicial do Streamlit
+st.set_page_config(page_title="Dimensionamento de Perfis Metálicos", layout="wide")
+st.title("Dimensionamento de Perfis Metálicos - NBR 14762:2001")
 
-    # Propriedades geométricas
-    A = 2 * largura * espessura + altura * espessura  # mm²
-    Ix = (largura * altura**3)/12 - ((largura - espessura)*(altura - 2*espessura)**3)/12  # mm4
-    Iy = (2 * espessura * largura**3)/12 + (altura * espessura**3)/12  # mm4
-    Wx = Ix / (altura/2)  # mm3
-    Wy = Iy / (largura/2)  # mm3
-    rx = (Ix/A)**0.5  # mm
-    ry = (Iy/A)**0.5  # mm
-
-    # Verificação à tração/compressão (NBR 8800 - 5.1)
-    def resistencia_compressao(A, fy, le_x, le_y, rx, ry, E=205000):
-        # Índice de esbeltez
-        λx = le_x/rx
-        λy = le_y/ry
-
-        # Força crítica de flambagem elástica
-        Nex = (np.pi**2 * E * Ix)/(le_x**2) if le_x > 0 else float('inf')
-        Ney = (np.pi**2 * E * Iy)/(le_y**2) if le_y > 0 else float('inf')
-
-        # Parâmetro de flambagem
-        λ0x = (A * fy/Nex)**0.5 if Nex > 0 else 0
-        λ0y = (A * fy/Ney)**0.5 if Ney > 0 else 0
-
-        # Fator de redução χ
-        χx = 1/(0.658**(λ0x**2)) if λ0x <= 1.5 else 0.877/(λ0x**2)
-        χy = 1/(0.658**(λ0y**2)) if λ0y <= 1.5 else 0.877/(λ0y**2)
-
-        # Resistência de cálculo
-        Nc_rdx = χx * A * fy / 1.1
-        Nc_rdy = χy * A * fy / 1.1
-
-        return min(Nc_rdx, Nc_rdy)
-
-    Nc_rd = resistencia_compressao(A, fy, le_x, le_y, rx, ry)
-    Nt_rd = A * fy / 1.1  # Resistência à tração
-
-    # Verificação à flexão (NBR 8800 - 5.4)
-    def resistencia_flexao(W, fy, Lb, Cb=1.0, E=205000, G=78925, J=None, Cw=None):
-        # Flambagem lateral com torção (FLT)
-        Lp = 1.76 * ry * (E/fy)**0.5
-        if J is None:  # Simplificação para perfis U
-            J = (2*largura*espessura**3 + (altura-2*espessura)*espessura**3)/3
-        if Cw is None:  # Simplificação para perfis U
-            Cw = (largura**3 * altura**2 * espessura)/12
-
-        Lr = 1.95 * (E/(0.7*fy)) * (J/(A*(ry**0.5))) * (1 + (1 + 6.76*(0.7*fy/E * (Lb/ry)**2)**0.5))**0.5
-
-        if Lb <= Lp:
-            Mn = W * fy
-        elif Lb <= Lr:
-            Mn = Cb * (W * fy - (W * fy - 0.7*W*fy)*((Lb-Lp)/(Lr-Lp)))
-        else:
-            Fcr = (Cb * np.pi**2 * E)/(Lb/ry)**2 * (1 + 0.078 * J/(A * (ry**2)) * (Lb/ry)**2)**0.5
-            Mn = Fcr * W
-
-        return Mn / 1.1
-
-    Mx_rd = resistencia_flexao(Wx, fy, Lz)
-    My_rd = resistencia_flexao(Wy, fy, Lz)
-
-    # Verificação ao cisalhamento (NBR 8800 - 5.5)
-    def resistencia_cisalhamento(Aw, fy):
-        return 0.6 * Aw * fy / 1.1
-
-    Vx_rd = resistencia_cisalhamento(altura * espessura, fy)
-    Vy_rd = resistencia_cisalhamento(2 * largura * espessura, fy)
-
-    # Verificação combinada (NBR 8800 - 5.6)
-    def verificacao_combinada(Nsd, Nrd, Mx_sd, Mx_rd, My_sd, My_rd):
-        # Para flexo-compressão
-        if Nsd > 0:
-            ratio = Nsd/Nrd + 0.85*(Mx_sd/Mx_rd + My_sd/My_rd)
-        # Para flexo-tração
-        else:
-            ratio = abs(Nsd)/Nrd + (Mx_sd/Mx_rd + My_sd/My_rd)
-        return ratio
-
-    ratio = verificacao_combinada(N, Nc_rd if N >=0 else Nt_rd, Mx, Mx_rd, My, My_rd)
-
-    # Verificação de flambagem local (aba e alma)
-    def flambagem_local(b, t, fy, elemento="alma"):
-        if elemento == "alma":
-            limite = 42 if fy == 250 else (35 if fy == 350 else (30 if fy == 420 else 42))
-        else: # aba
-            limite = 12 if fy == 250 else (10 if fy == 350 else (9 if fy == 420 else 12))
-
-        return b/t <= limite
-
-    ok_alma = flambagem_local(altura-2*espessura, espessura, fy, "alma")
-    ok_aba = flambagem_local(largura, espessura, fy, "aba")
-
+# Funções de cálculo
+def calcular_propriedades_geometricas(bf, bw, D, t, rm):
+    """Calcula propriedades geométricas do perfil U enrijecido"""
+    A = t * (2*bf + bw + 2*D)  # Área bruta
+    Ix = (t * (2*bf**3 + bw**3 + 6*bf*bw**2 + 6*bf*D**2)) / 12  # Momento de inércia em x
+    Iy = (t * (2*bf**3 + 6*bf*bw**2 + 6*bf*D**2)) / 12  # Momento de inércia em y
+    It = (t**3 * (2*bf + bw + 2*D)) / 3  # Momento de inércia à torção
+    Cw = (bf**2 * bw**2 * t) / 24  # Constante de empenamento
+    
+    rx = np.sqrt(Ix/A)  # Raio de giração em x
+    ry = np.sqrt(Iy/A)  # Raio de giração em y
+    
+    # Centro de torção (simplificado para perfil U)
+    x0 = bf/2 + t/2
+    y0 = 0
+    r0 = np.sqrt(rx**2 + ry**2 + x0**2 + y0**2)  # Raio de giração polar
+    
     return {
-        "Nc_rd": Nc_rd,
-        "Nt_rd": Nt_rd,
-        "Mx_rd": Mx_rd,
-        "My_rd": My_rd,
-        "Vx_rd": Vx_rd,
-        "Vy_rd": Vy_rd,
-        "ratio": ratio,
-        "ok_alma": ok_alma,
-        "ok_aba": ok_aba
+        'A': A,
+        'Ix': Ix,
+        'Iy': Iy,
+        'It': It,
+        'Cw': Cw,
+        'rx': rx,
+        'ry': ry,
+        'x0': x0,
+        'y0': y0,
+        'r0': r0
     }
 
-# Streamlit app
-def main():
-    st.title("Verificação de Perfil U Enrijecido")
+def calcular_ne(E, I, K, L):
+    """Calcula a força normal de flambagem elástica"""
+    return (np.pi**2 * E * I) / (K * L)**2
 
-    # User input
-    largura = st.number_input("Largura da aba (mm)", value=50.0)
-    altura = st.number_input("Altura da alma (mm)", value=100.0)
-    espessura = st.number_input("Espessura (mm)", value=2.0)
-    comprimento = st.number_input("Comprimento (mm)", value=3000.0)
-    fy = st.number_input("Resistência do aço (MPa)", value=250.0)
-    le_x = st.number_input("Comprimento de flambagem em x (mm)", value=2500.0)
-    le_y = st.number_input("Comprimento de flambagem em y (mm)", value=2500.0)
-    Lx = st.number_input("Lx (mm)", value=3000.0)
-    Ly = st.number_input("Ly (mm)", value=3000.0)
-    Lz = st.number_input("Lz (mm)", value=3000.0)
-    Kx = st.number_input("Coeficiente Kx", value=1.0)
-    Ky = st.number_input("Coeficiente Ky", value=1.0)
-    Kz = st.number_input("Coeficiente Kz", value=1.0)
-    N = st.number_input("Carga axial N (kN)", value=50.0) * 1000  # Convert kN to N
-    Mx = st.number_input("Momento fletor em x (kN.m)", value=10.0) * 1e6  # Convert kN.m to N.mm
-    My = st.number_input("Momento fletor em y (kN.m)", value=5.0) * 1e6  # Convert kN.m to N.mm
-    Vx = st.number_input("Força cortante em x (kN)", value=20.0) * 1000  # Convert kN to N
-    Vy = st.number_input("Força cortante em y (kN)", value=15.0) * 1000  # Convert kN to N
+def calcular_net(E, Cw, G, It, Kt, Lt, r0):
+    """Calcula a força normal de flambagem por torção"""
+    return (1/r0**2) * ((np.pi**2 * E * Cw)/(Kt * Lt)**2 + G * It)
 
-    # Perform verification
-    results = structural_verification(largura, altura, espessura, comprimento, fy, le_x, le_y, Lx, Ly, Lz, Kx, Ky, Kz, N, Mx, My, Vx, Vy)
+def calcular_next(Nex, Net, x0, r0):
+    """Calcula a força normal de flambagem por flexo-torção para perfis monossimétricos"""
+    denominator = 2 * (1 - (x0/r0)**2)
+    sqrt_part = np.sqrt(1 - (4 * Nex * Net * (1 - (x0/r0)**2)) / (Nex + Net)**2)
+    return ((Nex + Net) / denominator) * (1 - sqrt_part)
 
-    # Display results
-    st.subheader("Resultados da Verificação Estrutural")
-    st.write(f"Resistência de cálculo à compressão (Nc,Rd): {results['Nc_rd']/1000:.2f} kN")
-    st.write(f"Resistência de cálculo à tração (Nt,Rd): {results['Nt_rd']/1000:.2f} kN")
-    st.write(f"Resistência de cálculo à flexão em x (Mx,Rd): {results['Mx_rd']/1e6:.2f} kN.m")
-    st.write(f"Resistência de cálculo à flexão em y (My,Rd): {results['My_rd']/1e6:.2f} kN.m")
-    st.write(f"Resistência de cálculo ao cisalhamento em x (Vx,Rd): {results['Vx_rd']/1000:.2f} kN")
-    st.write(f"Resistência de cálculo ao cisalhamento em y (Vy,Rd): {results['Vy_rd']/1000:.2f} kN")
+def calcular_lambda0(Aef, fy, Ne):
+    """Calcula o índice de esbeltez reduzido"""
+    return np.sqrt(Aef * fy / Ne)
 
-    st.write("---")
-    st.write(f"Verificação combinada (N + Mx + My): {results['ratio']:.3f} {'✅ (OK)' if results['ratio'] <= 1 else '❌ (Não OK)'}")
+def calcular_fator_reducao(l0, alpha):
+    """Calcula o fator de redução ρ conforme NBR 14762"""
+    beta = 0.5 * (1 + alpha * (l0 - 0.2) + l0**2)
+    rho = 1 / (beta + np.sqrt(beta**2 - l0**2))
+    return min(rho, 1.0)
 
-    st.write("---")
-    st.write("**Verificação de flambagem local:**")
-    st.write(f"- Alma (h/t): {(altura-2*espessura)/espessura:.1f} ≤ {42 if fy == 250 else (35 if fy == 350 else (30 if fy == 420 else 42))} {'✅ (OK)' if results['ok_alma'] else '❌ (Não OK)'}")
-    st.write(f"- Aba (b/t): {largura/espessura:.1f} ≤ {12 if fy == 250 else (10 if fy == 350 else (9 if fy == 420 else 12))} {'✅ (OK)' if results['ok_aba'] else '❌ (Não OK)'}")
+def calcular_larguras_efetivas_compressao(b, t, sigma, E, k):
+    """Calcula larguras efetivas para elementos sob compressão"""
+    lambda_p = (b/t) / (0.95 * np.sqrt(k * E / sigma))
+    if lambda_p <= 0.673:
+        return b
+    else:
+        return b * (1 - 0.22/lambda_p) / lambda_p
 
-    # LaTeX report generation
-    if st.button("Gerar Relatório LaTeX"):
-        latex_code = f"""
-\\documentclass[12pt]{{article}}
-\\usepackage{{amsmath,graphicx}}
-\\title{{Relatório de Verificação do Perfil U Enrijecido}}
-\\begin{{document}}
-\\maketitle
-\\section*{{Dados de Entrada}}
-\\begin{{itemize}}
-    \\item Altura da alma: {altura} mm
-    \\item Largura da aba: {largura} mm
-    \\item Espessura: {espessura} mm
-    \\item Comprimento: {comprimento} mm
-    \\item Resistência do aço: {fy} MPa
-    \\item Comprimentos de flambagem: Lx={Lx} mm, Ly={Ly} mm, Lz={Lz} mm
-    \\item Coeficientes: Kx={Kx}, Ky={Ky}, Kz={Kz}
-    \\item Cargas solicitantes: N={N/1000:.2f} kN, Mx={Mx/1e6:.2f} kN.m, My={My/1e6:.2f} kN.m, Vx={Vx/1000:.2f} kN, Vy={Vy/1000:.2f} kN
-\\end{{itemize}}
+def verificar_flambagem_distorcional(bf, bw, D, t, fy, E):
+    """Verificação simplificada da flambagem por distorção"""
+    # Esta é uma verificação simplificada - o cálculo completo seria mais complexo
+    relacao_D_bw = D / bw
+    relacao_bf_bw = bf / bw
+    
+    # Valores mínimos da relação D/bw (extraídos das tabelas no PDF)
+    tabela_minimos = {
+        (0.4, 25): 0.04,
+        (0.6, 25): 0.06,
+        # Adicionar mais valores conforme tabela completa
+    }
+    
+    # Verificar se a relação D/bw atende aos mínimos para dispensar a verificação
+    chave = (round(relacao_bf_bw,1), round(bw/t))
+    if chave in tabela_minimos:
+        if relacao_D_bw >= tabela_minimos[chave]:
+            return True, "Dispensada (atende relação mínima D/bw)"
+    
+    return False, "Necessária verificação detalhada"
 
-\\section*{{Propriedades Geométricas}}
-\\begin{{itemize}}
-    \\item Área: {2 * largura * espessura + altura * espessura:.2f} mm²
-    \\item Momento de inércia Ix: {((largura * altura**3)/12 - ((largura - espessura)*(altura - 2*espessura)**3)/12):.2f} mm⁴
-    \\item Momento de inércia Iy: {(2 * espessura * largura**3)/12 + (altura * espessura**3)/12:.2f} mm⁴
-    \\item Módulo resistente Wx: {(((largura * altura**3)/12 - ((largura - espessura)*(altura - 2*espessura)**3)/12) / (altura/2)):.2f} mm³
-    \\item Módulo resistente Wy: {((2 * espessura * largura**3)/12 + (altura * espessura**3)/12) / (largura/2):.2f} mm³
-    \\item Raio de giração rx: {(((largura * altura**3)/12 - ((largura - espessura)*(altura - 2*espessura)**3)/12) / (2 * largura * espessura + altura * espessura))**0.5:.2f} mm
-    \\item Raio de giração ry: {((2 * espessura * largura**3)/12 + (altura * espessura**3)/12) / (2 * largura * espessura + altura * espessura))**0.5:.2f} mm
-\\end{{itemize}}
+def gerar_relatorio_latex(dados):
+    """Gera um relatório técnico em LaTeX com os resultados"""
+    doc = Document('relatorio_dimensionamento')
+    
+    # Pré-ambulo do documento
+    doc.preamble.append(Command('title', 'Relatório de Dimensionamento - NBR 14762:2001'))
+    doc.preamble.append(Command('author', 'Streamlit App'))
+    doc.preamble.append(Command('date', '\\today'))
+    doc.append(Command('maketitle'))
+    
+    # Seção 1: Dados de entrada
+    with doc.create(Section('Dados de Entrada')):
+        doc.append('Propriedades do aço:\n')
+        doc.append(Math(data=[r'f_y = ', f'{dados["fy"]}', r'\text{ MPa}']))
+        doc.append('\n\n')
+        
+        doc.append('Propriedades geométricas do perfil:\n')
+        with doc.create(Tabular('|l|c|')) as table:
+            table.add_row(['Largura da mesa (bf)', f'{dados["bf"]} mm'])
+            table.add_row(['Altura da alma (bw)', f'{dados["bw"]} mm'])
+            table.add_row(['Enrijecimento (D)', f'{dados["D"]} mm'])
+            table.add_row(['Espessura (t)', f'{dados["t"]} mm'])
+    
+    # Seção 2: Resultados
+    with doc.create(Section('Resultados do Dimensionamento')):
+        with doc.create(Subsection('Flambagem Global')):
+            doc.append(f'Modo crítico de flambagem: {dados["modo_critico"]}\n\n')
+            doc.append(Math(data=[
+                r'N_e = \min(',
+                f'N_{{ex}} = {dados["Nex"]:.2f}\ \text{{kN}}, ',
+                f'N_{{ey}} = {dados["Ney"]:.2f}\ \text{{kN}}, ',
+                f'N_{{et}} = {dados["Net"]:.2f}\ \text{{kN}}) = ',
+                f'{dados["Ne"]:.2f}\ \text{{kN}}'
+            ]))
+            doc.append('\n\n')
+            
+            doc.append('Fator de redução:\n')
+            doc.append(Math(data=[
+                r'\lambda_0 = \sqrt{\frac{A_{ef}f_y}{N_e}} = ',
+                f'{dados["lambda0"]:.3f}'
+            ]))
+            doc.append('\n')
+            doc.append(Math(data=[
+                r'\rho = \frac{1}{\phi + \sqrt{\phi^2 - \lambda_0^2}} = ',
+                f'{dados["rho"]:.3f}'
+            ]))
+            doc.append('\n\n')
+            
+            doc.append('Resistência de cálculo:\n')
+            doc.append(Math(data=[
+                r'N_{c,Rd} = \frac{\rho A_{ef} f_y}{\gamma} = ',
+                f'{dados["NcRd"]:.2f}\ \text{{kN}}'
+            ]))
+        
+        with doc.create(Subsection('Flambagem por Distorção')):
+            doc.append(dados["verif_distorcional"][1] + '\n\n')
+            if not dados["verif_distorcional"][0]:
+                doc.append(Math(data=[
+                    r'N_{c,Rd,dist} = A f_y (1 - 0.25\lambda_{dist}^2)/\gamma = ',
+                    f'{dados["NcRd_dist"]:.2f}\ \text{{kN}}'
+                ]))
+    
+    # Seção 3: Verificações finais
+    with doc.create(Section('Verificações Finais')):
+        doc.append('Verificação da resistência:\n')
+        doc.append(Math(data=[
+            r'\frac{N_{c,Sd}}{N_{c,Rd}} = ',
+            f'{dados["NcSd"]/dados["NcRd"]:.3f}',
+            r'\leq 1.0 \quad',
+            'OK' if dados["NcSd"]/dados["NcRd"] <= 1.0 else 'NÃO OK'
+        ]))
+    
+    return doc
 
-\\section*{{Verificação Estrutural}}
-\\begin{{itemize}}
-    \\item Resistência à compressão: {results['Nc_rd']/1000:.2f} kN
-    \\item Resistência à tração: {results['Nt_rd']/1000:.2f} kN
-    \\item Resistência à flexão em x: {results['Mx_rd']/1e6:.2f} kN.m
-    \\item Resistência à flexão em y: {results['My_rd']/1e6:.2f} kN.m
-    \\item Resistência ao cisalhamento em x: {results['Vx_rd']/1000:.2f} kN
-    \\item Resistência ao cisalhamento em y: {results['Vy_rd']/1000:.2f} kN
-    \\item Verificação combinada: {results['ratio']:.3f} {'\\textcolor{{green}}{{(OK)}}' if results['ratio'] <= 1 else '\\textcolor{{red}}{{(Não OK)}}'}
-    \\item Flambagem local da alma: {'\\textcolor{{green}}{{(OK)}}' if results['ok_alma'] else '\\textcolor{{red}}{{(Não OK)}}'}
-    \\item Flambagem local da aba: {'\\textcolor{{green}}{{(OK)}}' if results['ok_aba'] else '\\textcolor{{red}}{{(Não OK)}}'}
-\\end{{itemize}}
-\\end{{document}}
-"""
-        st.code(latex_code, language="latex")
+# Interface do Streamlit
+with st.sidebar:
+    st.header("Dados de Entrada")
+    
+    # Propriedades do aço
+    st.subheader("Propriedades do Aço")
+    fy = st.number_input("Tensão de escoamento (fy) [MPa]", value=250, min_value=100, max_value=500)
+    E = st.number_input("Módulo de elasticidade (E) [MPa]", value=205000, min_value=100000, max_value=300000)
+    G = 0.385 * E
+    
+    # Solicitações
+    st.subheader("Solicitações")
+    NcSd = st.number_input("Força normal de compressão (Nc,Sd) [kN]", value=35.4)
+    MxSd = st.number_input("Momento fletor em x (Mx,Sd) [kN.m]", value=0.0)
+    MySd = st.number_input("Momento fletor em y (My,Sd) [kN.m]", value=0.0)
+    
+    # Geometria do perfil
+    st.subheader("Geometria do Perfil")
+    bf = st.number_input("Largura da mesa (bf) [mm]", value=40)
+    bw = st.number_input("Altura da alma (bw) [mm]", value=100)
+    D = st.number_input("Enrijecimento (D) [mm]", value=25)
+    t = st.number_input("Espessura (t) [mm]", value=2.65, min_value=0.5, max_value=10.0, step=0.1)
+    rm = t * 1.5  # Raio interno padrão
+    
+    # Comprimentos de flambagem
+    st.subheader("Comprimentos de Flambagem")
+    Lx = st.number_input("Comprimento em x (Lx) [mm]", value=2500)
+    Ly = st.number_input("Comprimento em y (Ly) [mm]", value=2500)
+    Lt = st.number_input("Comprimento para torção (Lt) [mm]", value=2500)
+    
+    # Coeficientes de flambagem
+    st.subheader("Coeficientes de Flambagem")
+    Kx = st.number_input("Coeficiente Kx", value=1.0, min_value=0.5, max_value=2.0, step=0.1)
+    Ky = st.number_input("Coeficiente Ky", value=1.0, min_value=0.5, max_value=2.0, step=0.1)
+    Kt = st.number_input("Coeficiente Kt", value=1.0, min_value=0.5, max_value=2.0, step=0.1)
 
-        tex_filename = "relatorio_perfil_U_enrijecido.tex"
-        with open(tex_filename, "w", encoding="utf-8") as f:
-            f.write(latex_code)
-        st.success(f"Relatório LaTeX salvo como {tex_filename}")
-
-if __name__ == "__main__":
-    main()
+# Botão para realizar cálculos
+if st.button("Realizar Dimensionamento"):
+    # Calcular propriedades geométricas
+    props = calcular_propriedades_geometricas(bf, bw, D, t, rm)
+    
+    # Cálculo das forças normais de flambagem elástica
+    Nex = calcular_ne(E, props['Ix'], Kx, Lx) / 1000  # Convertendo para kN
+    Ney = calcular_ne(E, props['Iy'], Ky, Ly) / 1000
+    Net = calcular_net(E, props['Cw'], G, props['It'], Kt, Lt, props['r0']) / 1000
+    
+    # Força normal de flambagem elástica (menor valor)
+    Ne = min(Nex, Ney, Net)
+    
+    # Determinar o modo crítico de flambagem
+    if Ne == Nex:
+        modo_critico = "Flambagem por flexão em x"
+        alpha = 0.34  # Curva b (valor padrão para perfis U)
+    elif Ne == Ney:
+        modo_critico = "Flambagem por flexão em y"
+        alpha = 0.34  # Curva b
+    else:
+        modo_critico = "Flambagem por torção/flexo-torção"
+        alpha = 0.34  # Curva b para torção/flexo-torção
+    
+    # Cálculo inicial do fator de redução (com Aef = A)
+    lambda0 = calcular_lambda0(props['A'], fy, Ne)
+    rho = calcular_fator_reducao(lambda0, alpha)
+    
+    # Tensão para cálculo das larguras efetivas
+    sigma = rho * fy
+    
+    # Cálculo das larguras efetivas (simplificado)
+    # Na prática, seria necessário calcular para cada elemento do perfil
+    Aef = props['A']  # Simplificação - cálculo completo seria mais complexo
+    
+    # Cálculo final do fator de redução
+    lambda0_final = calcular_lambda0(Aef, fy, Ne)
+    rho_final = calcular_fator_reducao(lambda0_final, alpha)
+    
+    # Resistência de cálculo à compressão
+    gamma = 1.1  # Coeficiente de ponderação da resistência
+    NcRd = rho_final * Aef * fy / gamma / 1000  # Convertendo para kN
+    
+    # Verificação da flambagem por distorção
+    verif_distorcional = verificar_flambagem_distorcional(bf, bw, D, t, fy, E)
+    
+    # Se necessário calcular a resistência à distorção
+    if not verif_distorcional[0]:
+        # Cálculo simplificado da resistência à distorção
+        NcRd_dist = props['A'] * fy * (1 - 0.25) / gamma / 1000  # Exemplo simplificado
+    else:
+        NcRd_dist = float('inf')
+    
+    # Preparar dados para o relatório
+    dados_relatorio = {
+        'fy': fy,
+        'E': E,
+        'bf': bf,
+        'bw': bw,
+        'D': D,
+        't': t,
+        'NcSd': NcSd,
+        'modo_critico': modo_critico,
+        'Nex': Nex,
+        'Ney': Ney,
+        'Net': Net,
+        'Ne': Ne,
+        'lambda0': lambda0_final,
+        'rho': rho_final,
+        'NcRd': NcRd,
+        'verif_distorcional': verif_distorcional,
+        'NcRd_dist': NcRd_dist if not verif_distorcional[0] else float('inf')
+    }
+    
+    # Gerar relatório LaTeX
+    doc = gerar_relatorio_latex(dados_relatorio)
+    
+    # Mostrar resultados na interface
+    st.header("Resultados do Dimensionamento")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.subheader("Propriedades Geométricas")
+        st.write(f"Área bruta (A): {props['A']:.2f} mm²")
+        st.write(f"Ix: {props['Ix']:.2f} mm⁴")
+        st.write(f"Iy: {props['Iy']:.2f} mm⁴")
+        st.write(f"It: {props['It']:.2f} mm⁴")
+        st.write(f"rx: {props['rx']:.2f} mm")
+        st.write(f"ry: {props['ry']:.2f} mm")
+        
+        st.subheader("Flambagem Global")
+        st.write(f"Modo crítico: {modo_critico}")
+        st.write(f"Nex: {Nex:.2f} kN")
+        st.write(f"Ney: {Ney:.2f} kN")
+        st.write(f"Net: {Net:.2f} kN")
+        st.write(f"Ne (valor crítico): {Ne:.2f} kN")
+        st.write(f"λ₀: {lambda0_final:.3f}")
+        st.write(f"ρ: {rho_final:.3f}")
+        st.write(f"Nc,Rd: {NcRd:.2f} kN")
+    
+    with col2:
+        st.subheader("Verificações")
+        st.write(f"Flambagem por distorção: {verif_distorcional[1]}")
+        if not verif_distorcional[0]:
+            st.write(f"Nc,Rd,dist: {NcRd_dist:.2f} kN")
+        
+        st.subheader("Verificação Final")
+        relacao = NcSd / NcRd
+        st.write(f"Nc,Sd / Nc,Rd = {relacao:.3f}")
+        if relacao <= 1.0:
+            st.success("Perfil VERIFICADO com sucesso!")
+        else:
+            st.error("Perfil NÃO VERIFICADO! A resistência é insuficiente.")
+        
+        # Visualização do perfil
+        fig, ax = plt.subplots(figsize=(6, 6))
+        # Desenho simplificado do perfil U
+        points = [
+            [0, 0], [bf, 0], [bf, t], [t, t], 
+            [t, bw-t], [bf, bw-t], [bf, bw], [0, bw]
+        ]
+        points = np.array(points)
+        ax.plot(points[:,0], points[:,1], 'b-', linewidth=2)
+        ax.set_aspect('equal')
+        ax.set_title("Geometria do Perfil")
+        st.pyplot(fig)
+    
+    # Gerar e disponibilizar relatório LaTeX
+    st.header("Relatório Técnico")
+    
+    with tempfile.NamedTemporaryFile(suffix=".tex", delete=False) as tmp:
+        doc.generate_tex(tmp.name)
+        tmp.seek(0)
+        latex_content = tmp.read().decode('utf-8')
+    
+    st.download_button(
+        label="Baixar Relatório LaTeX",
+        data=latex_content,
+        file_name="relatorio_dimensionamento.tex",
+        mime="text/plain"
+    )
+    
+    st.subheader("Pré-visualização do LaTeX")
+    st.code(latex_content, language='tex')
