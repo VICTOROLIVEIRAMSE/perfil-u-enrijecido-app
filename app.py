@@ -1,9 +1,11 @@
 import streamlit as st
 import math
+import numpy as np
+import matplotlib.pyplot as plt
 
 # Configuração do tema Dracula
-def inject_dracula_theme():
-    dracula_theme = """
+def setup_theme():
+    st.markdown("""
     <style>
         :root {
             --primary: #ff79c6;
@@ -11,189 +13,102 @@ def inject_dracula_theme():
             --secondary: #bd93f9;
             --text: #f8f8f2;
             --accent: #50fa7b;
-            --highlight: #6272a4;
         }
-        
         .stApp {
             background-color: var(--background);
             color: var(--text);
         }
-        
-        .stTextInput>div>div>input, .stNumberInput>div>div>input {
-            color: var(--text);
-            background-color: #44475a;
-            border-color: var(--highlight);
-        }
-        
-        .stSelectbox>div>div>select {
-            color: var(--text);
-            background-color: #44475a;
-        }
-        
         .stButton>button {
             background-color: var(--secondary);
-            color: var(--background);
-            border: none;
+            color: #282a36;
             font-weight: bold;
         }
-        
-        .stButton>button:hover {
-            background-color: var(--primary);
-            color: var(--background);
-        }
-        
         .metric {
             background-color: #44475a;
-            padding: 10px;
-            border-radius: 5px;
-            margin-bottom: 10px;
             border-left: 4px solid var(--secondary);
         }
-        
-        h1, h2, h3, h4, h5, h6 {
-            color: var(--primary);
-        }
-        
-        .stMarkdown {
-            color: var(--text);
-        }
     </style>
-    """
-    st.markdown(dracula_theme, unsafe_allow_html=True)
+    """, unsafe_allow_html=True)
 
-def calcular_propriedades_geometricas(largura, altura, espessura, raio, comprimento_labio):
-    """Calcula as propriedades geométricas de um perfil U enrijecido conforme NBR 14762"""
+def calcular_propriedades(largura, altura, espessura, raio, labio):
+    """Calcula as propriedades geométricas do perfil U enrijecido"""
+    # Cálculos básicos
+    area_total = 2*(labio*espessura) + (largura - 2*raio - 2*labio)*espessura + 2*(altura - 2*raio)*espessura
+    area_total += 4*(math.pi*(raio + espessura/2)*espessura)  # Curvas
     
-    # Cálculos geométricos
-    area_labio = comprimento_labio * espessura
-    area_mesa = (largura - 2 * raio - 2 * comprimento_labio) * espessura
-    area_alma = (altura - 2 * raio) * espessura
-    area_curvas = math.pi * (raio + espessura/2) * espessura
+    # Centroide (simplificado)
+    xg = largura/2  # Considerando simetria
+    yg = altura/2
     
-    area_total = 2 * area_labio + area_mesa + 2 * area_alma + 4 * area_curvas
-    
-    # Centroide
-    momento_labio_esq = area_labio * (comprimento_labio/2)
-    momento_curva_esq = area_curvas * (comprimento_labio + raio/2)
-    momento_alma_esq = area_alma * (comprimento_labio + raio + espessura/2)
-    momento_mesa = area_mesa * (largura/2)
-    momento_curva_dir = area_curvas * (largura - comprimento_labio - raio/2)
-    momento_labio_dir = area_labio * (largura - comprimento_labio/2)
-    
-    xg = (momento_labio_esq + momento_curva_esq + momento_alma_esq + 
-          momento_mesa + momento_curva_dir + momento_labio_dir) / area_total
-    yg = altura / 2
-    
-    # Momento de inércia
-    i_labio_x = (comprimento_labio * espessura**3)/12 + area_labio * (altura - espessura/2)**2
-    i_mesa_x = (espessura * (largura - 2*raio - 2*comprimento_labio)**3)/12 + area_mesa * (altura/2)**2
-    i_alma_x = (espessura * (altura - 2*raio)**3)/12
-    i_curva_x = 0.149 * raio * espessura**3 + area_curvas * (altura/2 - raio/2)**2
-    ix = 2 * i_labio_x + i_mesa_x + 2 * i_alma_x + 4 * i_curva_x
-    
-    i_labio_y = (espessura * comprimento_labio**3)/12 + area_labio * (comprimento_labio/2 - xg)**2
-    i_mesa_y = (espessura**3 * (largura - 2*raio - 2*comprimento_labio))/12 + area_mesa * (largura/2 - xg)**2
-    i_alma_y = ((altura - 2*raio) * espessura**3)/12 + area_alma * (comprimento_labio + raio + espessura/2 - xg)**2
-    i_curva_y = 0.149 * raio**3 * espessura + area_curvas * (comprimento_labio + raio/2 - xg)**2
-    iy = 2 * i_labio_y + i_mesa_y + 2 * i_alma_y + 4 * i_curva_y
-    
-    # Outras propriedades
-    wx = ix / (altura/2)
-    wy = iy / max(xg, largura - xg)
-    rx = math.sqrt(ix / area_total)
-    ry = math.sqrt(iy / area_total)
-    perimetro = 2 * (largura + altura) - 8 * raio + 2 * math.pi * raio
-    j = (perimetro * espessura**3) / 3
-    h = altura - espessura
-    b = largura - espessura
-    cw = (h**2 * b**3 * espessura) / 12 * ((6 * comprimento_labio + b) / (12 * comprimento_labio + b))
+    # Momento de inércia (aproximado)
+    Ix = (largura * altura**3)/12 - ((largura - 2*espessura)*(altura - 2*espessura)**3)/12
+    Iy = (altura * largura**3)/12 - ((altura - 2*espessura)*(largura - 2*espessura)**3)/12
     
     return {
-        'Área (Ag)': area_total,
-        'Centroide X (Xg)': xg,
-        'Centroide Y (Yg)': yg,
-        'Mom. Inércia X (Ix)': ix,
-        'Mom. Inércia Y (Iy)': iy,
-        'Mód. Resistente X (Wx)': wx,
-        'Mód. Resistente Y (Wy)': wy,
-        'Raio de Giração X (rx)': rx,
-        'Raio de Giração Y (ry)': ry,
-        'Const. Torção (J)': j,
-        'Const. Empenamento (Cw)': cw
+        'Área (mm²)': round(area_total, 2),
+        'Ix (mm⁴)': round(Ix, 2),
+        'Iy (mm⁴)': round(Iy, 2),
+        'Wx (mm³)': round(Ix/(altura/2), 2),
+        'Wy (mm³)': round(Iy/(largura/2), 2)
     }
 
-def main():
-    inject_dracula_theme()
+def plot_perfil(largura, altura, espessura):
+    """Cria uma visualização gráfica do perfil"""
+    fig, ax = plt.subplots(figsize=(8, 4))
     
-    st.title('📐 Dimensionamento de Perfil U Enrijecido')
-    st.markdown("### Cálculo conforme NBR 14724 - Dimensionamento de estruturas de aço constituídas por perfis formados a frio")
+    # Coordenadas do perfil U
+    pontos = np.array([
+        [0, 0],
+        [largura, 0],
+        [largura, -altura],
+        [0, -altura],
+        [0, -altura+espessura],
+        [largura-espessura, -altura+espessura],
+        [largura-espessura, -espessura],
+        [espessura, -espessura],
+        [espessura, -altura+espessura],
+        [0, -altura+espessura]
+    ])
     
-    with st.expander("ℹ️ Instruções", expanded=False):
-        st.markdown("""
-        - Preencha as dimensões do perfil em milímetros (mm)
-        - Clique em **Calcular Propriedades**
-        - Os resultados serão exibidos abaixo
-        """)
+    ax.plot(pontos[:,0], pontos[:,1], color='#bd93f9', linewidth=2)
+    ax.fill(pontos[:,0], pontos[:,1], color='#44475a', alpha=0.3)
+    ax.set_aspect('equal')
+    ax.grid(True, color='#6272a4', linestyle='--', alpha=0.3)
+    ax.set_facecolor('#282a36')
+    fig.patch.set_facecolor('#282a36')
+    ax.spines[:].set_color('#f8f8f2')
+    ax.tick_params(colors='#f8f8f2')
     
-    with st.form("dados_perfil"):
-        st.markdown("### 📏 Dimensões do Perfil")
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            largura = st.number_input("Largura da mesa (mm)", min_value=10.0, value=100.0, step=1.0)
-            altura = st.number_input("Altura da alma (mm)", min_value=10.0, value=50.0, step=1.0)
-            
-        with col2:
-            espessura = st.number_input("Espessura (mm)", min_value=0.5, value=1.5, step=0.1)
-            raio = st.number_input("Raio de dobramento (mm)", min_value=0.5, value=3.0, step=0.5)
-            comprimento_labio = st.number_input("Comprimento do lábio enrijecedor (mm)", min_value=0.0, value=10.0, step=1.0)
-        
-        submitted = st.form_submit_button("🚀 Calcular Propriedades", use_container_width=True)
+    return fig
 
-    if submitted:
-        st.markdown("---")
-        st.markdown("## 📊 Resultados das Propriedades Geométricas")
-        
-        propriedades = calcular_propriedades_geometricas(largura, altura, espessura, raio, comprimento_labio)
-        
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            st.metric("Área (Ag)", f"{propriedades['Área (Ag)']:.2f} mm²", help="Área total da seção transversal")
-            st.metric("Centroide X (Xg)", f"{propriedades['Centroide X (Xg)']:.2f} mm", help="Posição do centroide no eixo X")
-            st.metric("Centroide Y (Yg)", f"{propriedades['Centroide Y (Yg)']:.2f} mm", help="Posição do centroide no eixo Y")
-            st.metric("Mom. Inércia X (Ix)", f"{propriedades['Mom. Inércia X (Ix)']:.2f} mm⁴", help="Momento de inércia em relação ao eixo X")
-            
-        with col2:
-            st.metric("Mom. Inércia Y (Iy)", f"{propriedades['Mom. Inércia Y (Iy)']:.2f} mm⁴", help="Momento de inércia em relação ao eixo Y")
-            st.metric("Mód. Resistente X (Wx)", f"{propriedades['Mód. Resistente X (Wx)']:.2f} mm³", help="Módulo resistente elástico em X")
-            st.metric("Mód. Resistente Y (Wy)", f"{propriedades['Mód. Resistente Y (Wy)']:.2f} mm³", help="Módulo resistente elástico em Y")
-            st.metric("Raio de Giração X (rx)", f"{propriedades['Raio de Giração X (rx)']:.2f} mm", help="Raio de giração em relação ao eixo X")
-        
-        st.metric("Raio de Giração Y (ry)", f"{propriedades['Raio de Giração Y (ry)']:.2f} mm", help="Raio de giração em relação ao eixo Y")
-        st.metric("Constante de Torção (J)", f"{propriedades['Const. Torção (J)']:.2f} mm⁴", help="Constante de torção de Saint-Venant")
-        st.metric("Constante de Empenamento (Cw)", f"{propriedades['Const. Empenamento (Cw)']:.2e} mm⁶", help="Constante de empenamento da seção")
-        
-        # Visualização esquemática do perfil
-        st.markdown("---")
-        st.markdown("## 🖍️ Visualização Esquemática")
-        
-        # Representação ASCII do perfil
-        st.code(f"""
-        Perfil U Enrijecido - Dimensões:
-        
-        {'_'*(int(largura/5))}
-        |{' '*(int(largura/5)-2)}|
-        |{' '*(int(comprimento_labio/5))}↘{' '*(int(largura/5)-2*int(comprimento_labio/5)-4)}↙{' '*(int(comprimento_labio/5))}|
-        |{' '*(int(comprimento_labio/5))}|{' '*(int(largura/5)-2*int(comprimento_labio/5)-2)}|{' '*(int(comprimento_labio/5))}|
-        ‾{'‾'*(int(largura/5)-2)}‾
-        
-        Largura: {largura} mm
-        Altura: {altura} mm
-        Espessura: {espessura} mm
-        Lábio: {comprimento_labio} mm
-        Raio: {raio} mm
-        """)
+def main():
+    setup_theme()
+    
+    st.title("Perfil U Enrijecido - NBR 14762")
+    st.markdown("### Dimensionamento de perfis formados a frio")
+    
+    with st.sidebar:
+        st.header("Dimensões do Perfil")
+        largura = st.slider("Largura (mm)", 50, 300, 100)
+        altura = st.slider("Altura (mm)", 30, 200, 50)
+        espessura = st.slider("Espessura (mm)", 0.5, 5.0, 1.5, 0.1)
+        raio = st.slider("Raio (mm)", 1.0, 10.0, 3.0, 0.5)
+        labio = st.slider("Lábio (mm)", 5, 50, 15)
+    
+    # Cálculos e resultados
+    props = calcular_propriedades(largura, altura, espessura, raio, labio)
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        st.metric("Área da Seção", f"{props['Área (mm²)']} mm²")
+        st.metric("Mom. Inércia X", f"{props['Ix (mm⁴)']} mm⁴")
+    
+    with col2:
+        st.metric("Mom. Inércia Y", f"{props['Iy (mm⁴)']} mm⁴")
+        st.metric("Mód. Resistente", f"{props['Wx (mm³)']} mm³")
+    
+    # Visualização gráfica
+    st.pyplot(plot_perfil(largura, altura, espessura))
 
 if __name__ == "__main__":
     main()
