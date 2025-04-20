@@ -29,8 +29,16 @@ comprimento = st.number_input("Comprimento total (mm)", value=2000.0)
 fy = st.selectbox("Resistência do Aço fy (MPa)", [230, 300, 350, 420], index=2)
 
 st.subheader("Parâmetros de Flambagem")
-k = st.slider("Coeficiente de comprimento efetivo (K)", 0.5, 2.0, value=1.0)
-le = comprimento * k
+Lx = st.number_input("Comprimento de flambagem em x (Lx) [mm]", value=2000.0)
+Ly = st.number_input("Comprimento de flambagem em y (Ly) [mm]", value=2000.0)
+Lz = st.number_input("Comprimento de flambagem em z (Lz) [mm]", value=2000.0)
+Kx = st.slider("Coeficiente Kx", 0.5, 2.0, value=1.0)
+Ky = st.slider("Coeficiente Ky", 0.5, 2.0, value=1.0)
+Kz = st.slider("Coeficiente Kz", 0.5, 2.0, value=1.0)
+
+le_x = Lx * Kx
+le_y = Ly * Ky
+le_z = Lz * Kz
 
 # Cálculo da área e módulo de inércia aproximado (simplificado para perfil U dobrado)
 b = largura / 1000
@@ -43,19 +51,24 @@ ix = ((b * h**3) / 12) - (((b - t) * (h - 2*t)**3) / 12)  # m^4, simplificação
 # Cálculo da carga crítica de Euler
 E = 200_000  # MPa
 pi = np.pi
-Pcr = (pi**2 * E * ix) / ((le / 1000)**2)  # kN
+Pcr_x = (pi**2 * E * ix) / ((le_x / 1000)**2)  # N
+Pcr_y = (pi**2 * E * ix) / ((le_y / 1000)**2)
+Pcr_z = (pi**2 * E * ix) / ((le_z / 1000)**2)
 
 # Tensão de flambagem crítica
-fcr = (Pcr * 1000) / area / 1e6  # MPa
+fcr_x = (Pcr_x * 1000) / area / 1e6  # MPa
+
+# Flecha máxima (simplificada para carga centrada)
+flecha_max = (comprimento / 1000)**2 / 500  # m
 
 # Gráfico de capacidade x comprimento
-comprimentos = np.linspace(500, 6000, 100)
-le_array = comprimentos * k
+deformacoes = np.linspace(500, 6000, 100)
+le_array = deformacoes * Kx
 Pcr_array = (pi**2 * E * ix) / ((le_array / 1000)**2)
 
-st.subheader("Gráfico: Capacidade de Carga x Comprimento")
+st.subheader("Gráfico: Capacidade de Carga x Comprimento (Kx)")
 fig, ax = plt.subplots()
-ax.plot(comprimentos, Pcr_array, label="Carga Crítica (N)", color="#4a90e2")
+ax.plot(deformacoes, Pcr_array, label="Carga Crítica (N)", color="#4a90e2")
 ax.axhline(y=fy*area*1e6, color='red', linestyle='--', label="Limite de Escoamento")
 ax.set_xlabel("Comprimento (mm)")
 ax.set_ylabel("Carga Crítica (N)")
@@ -63,33 +76,46 @@ ax.legend()
 ax.grid(True)
 st.pyplot(fig)
 
+st.subheader("Gráfico: Flecha Máxima vs Comprimento")
+comprimento_plot = np.linspace(500, 6000, 100)
+flecha_plot = (comprimento_plot / 1000)**2 / 500
+fig2, ax2 = plt.subplots()
+ax2.plot(comprimento_plot, flecha_plot * 1000, label="Flecha Máxima (mm)", color="#50e3c2")
+ax2.set_xlabel("Comprimento (mm)")
+ax2.set_ylabel("Flecha Máxima (mm)")
+ax2.grid(True)
+ax2.legend()
+st.pyplot(fig2)
+
 # Relatório LaTeX
 if st.button("Gerar LaTeX"):
     latex_code = f"""
-\\documentclass[12pt]{{article}}
-\\usepackage{{amsmath,graphicx}}
-\\title{{Relatório de Verificação do Perfil U Enrijecido}}
-\\begin{{document}}
-\\maketitle
-\\section*{{Dados de Entrada}}
-\\begin{{itemize}}
+\documentclass[12pt]{{article}}
+\usepackage{{amsmath,graphicx}}
+\title{{Relatório de Verificação do Perfil U Enrijecido}}
+\begin{{document}}
+\maketitle
+\section*{{Dados de Entrada}}
+\begin{{itemize}}
   \item Altura da alma: {altura} mm
   \item Largura da aba: {largura} mm
   \item Espessura: {espessura} mm
   \item Comprimento: {comprimento} mm
   \item Resistência do aço: {fy} MPa
-  \item Coeficiente K: {k}
-\\end{{itemize}}
+  \item Comprimentos de flambagem: Lx={Lx} mm, Ly={Ly} mm, Lz={Lz} mm
+  \item Coeficientes: Kx={Kx}, Ky={Ky}, Kz={Kz}
+\end{{itemize}}
 
-\\section*{{Resultados}}
-\\begin{{itemize}}
+\section*{{Resultados}}
+\begin{{itemize}}
   \item Área: {area*1e6:.2f} mm$^2$
   \item Módulo de inércia (aprox.): {ix*1e12:.2f} mm$^4$
-  \item Comprimento efetivo: {le:.1f} mm
-  \item Carga crítica de flambagem: {Pcr:.2f} N
-  \item Tensão crítica de flambagem: {fcr:.2f} MPa
-\\end{{itemize}}
-\\end{{document}}
+  \item Comprimentos efetivos: le$_x$={le_x:.1f} mm, le$_y$={le_y:.1f} mm, le$_z$={le_z:.1f} mm
+  \item Cargas críticas de flambagem: $P_{{cr,x}}$={Pcr_x:.2f} N, $P_{{cr,y}}$={Pcr_y:.2f} N, $P_{{cr,z}}$={Pcr_z:.2f} N
+  \item Tensão crítica de flambagem (x): {fcr_x:.2f} MPa
+  \item Flecha máxima estimada: {flecha_max*1000:.2f} mm
+\end{{itemize}}
+\end{{document}}
 """
     st.code(latex_code, language="latex")
 
