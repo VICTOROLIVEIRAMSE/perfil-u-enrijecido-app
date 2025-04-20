@@ -1,6 +1,6 @@
 import streamlit as st
 import math
-from streamlit.components.v1 import html
+st.components.v1.html(svg_code, height=300)
 
 # Configuração do tema Dracula
 def inject_dracula_theme():
