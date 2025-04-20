@@ -89,7 +89,7 @@ st.pyplot(fig2)
 
 # Relatório LaTeX
 if st.button("Gerar LaTeX"):
-latex_code = f"""
+    latex_code = f"""
 \documentclass[12pt]{{article}}
 \usepackage{{amsmath,graphicx}}
 \title{{Relatório de Verificação do Perfil U Enrijecido}}
@@ -117,10 +117,10 @@ latex_code = f"""
 \end{{itemize}}
 \end{{document}}
 """
-
     st.code(latex_code, language="latex")
 
     tex_filename = "relatorio_perfil_U_enrijecido.tex"
     with open(tex_filename, "w", encoding="utf-8") as f:
         f.write(latex_code)
     st.success(f"Arquivo LaTeX salvo como {tex_filename}")
+
