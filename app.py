@@ -89,14 +89,14 @@ st.pyplot(fig2)
 
 # Relatório LaTeX
 if st.button("Gerar LaTeX"):
-    latex_code = f"""
-\documentclass[12pt]{{article}}
-\usepackage{{amsmath,graphicx}}
-\title{{Relatório de Verificação do Perfil U Enrijecido}}
-\begin{{document}}
+    latex_code = r"""
+\documentclass[12pt]{article}
+\usepackage{amsmath,graphicx}
+\title{Relatório de Verificação do Perfil U Enrijecido}
+\begin{document}
 \maketitle
-\section*{{Dados de Entrada}}
-\begin{{itemize}}
+\section*{Dados de Entrada}
+\begin{itemize}
   \item Altura da alma: {altura} mm
   \item Largura da aba: {largura} mm
   \item Espessura: {espessura} mm
@@ -104,18 +104,18 @@ if st.button("Gerar LaTeX"):
   \item Resistência do aço: {fy} MPa
   \item Comprimentos de flambagem: Lx={Lx} mm, Ly={Ly} mm, Lz={Lz} mm
   \item Coeficientes: Kx={Kx}, Ky={Ky}, Kz={Kz}
-\end{{itemize}}
+\end{itemize}
 
-\section*{{Resultados}}
-\begin{{itemize}}
+\section*{Resultados}
+\begin{itemize}
   \item Área: {area*1e6:.2f} mm$^2$
   \item Módulo de inércia (aprox.): {ix*1e12:.2f} mm$^4$
   \item Comprimentos efetivos: le$_x$={le_x:.1f} mm, le$_y$={le_y:.1f} mm, le$_z$={le_z:.1f} mm
-  \item Cargas críticas de flambagem: $P_{{cr,x}}$={Pcr_x:.2f} N, $P_{{cr,y}}$={Pcr_y:.2f} N, $P_{{cr,z}}$={Pcr_z:.2f} N
+  \item Cargas críticas de flambagem: $P_{cr,x}$={Pcr_x:.2f} N, $P_{cr,y}$={Pcr_y:.2f} N, $P_{cr,z}$={Pcr_z:.2f} N
   \item Tensão crítica de flambagem (x): {fcr_x:.2f} MPa
   \item Flecha máxima estimada: {flecha_max*1000:.2f} mm
-\end{{itemize}}
-\end{{document}}
+\end{itemize}
+\end{document}
 """
     st.code(latex_code, language="latex")
 
